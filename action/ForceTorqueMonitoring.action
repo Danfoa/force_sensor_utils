@@ -1,0 +1,12 @@
+# Define the goal
+bool plot = True
+float32 timeout = 5
+float32 min_detection_time = 0
+force_sensor_utils/AxisRange[] active_axes
+---
+# Define the result
+bool threshold_reached
+force_sensor_utils/AxisRange triggered_axis
+---
+# Define a feedback message
+force_sensor_utils/AxisRange[] active_axes
