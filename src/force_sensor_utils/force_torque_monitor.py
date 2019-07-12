@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 """--------------------------------------------------------------------
-This Module creates an instance of a `SimpleActionServer` dedicated to receive, 
+This Module defines the ForceTorqueMonitor class which provides realtime visualization of 
+`geometry_msgs/WrenchStamped` messages via a matplotlib plot, and also provides the functionality to
+detect if a given force or torque overpassed a given threshold.
 
-Parameters:
+The detection of threshold violation is provided through the actionlib
+`ForceTorqueMonitoringAction` `Action` 
 
 @author: Daniel Felipe Ordonez Apraez
 @email: daniels.ordonez@gmail.com
@@ -51,9 +54,10 @@ class ForceTorqueMonitor(object):
                                                            ForceTorqueMonitoringAction,
                                                            execute_cb=self.execute_cb,
                                                            auto_start=False)
-        self._result = ForceTorqueMonitoringResult
-        self._feedback = ForceTorqueMonitoringFeedback
-        self._active_goal = ForceTorqueMonitoringGoal
+        self._action_server.register_preempt_callback(self.preempt_cb)
+        self._result = ForceTorqueMonitoringResult()
+        self._feedback = ForceTorqueMonitoringFeedback()
+        self._active_goal = ForceTorqueMonitoringGoal()
 
         self._data_buffer = pd.DataFrame(columns=[TIME, 
                                     FX, 
@@ -81,16 +85,16 @@ class ForceTorqueMonitor(object):
         self._action_server.start()
         rospy.loginfo("Monitor ready for new commands \n - Action Name: %s \n - Wrench Topic: %s" % (action_name, wrench_topic))
         self._run_graph()
-
-
-    def _connection_timeout(self, event):
-        return None
         
     def execute_cb(self, new_goal):
         rospy.loginfo("Force/Torque monitoring goal received")
+        # Restart data  buffer and initial time 
+        # self._data_buffer
+        # self._data_buffer = pd.DataFrame(columns=[TIME, FX, FY, FZ, EQUIVALENT_FORCE, MX, MY, MZ, EQUIVALENT_TORQUE])
+        # self._start_time = rospy.get_time()
         # Check if new goal is valid 
         if len(new_goal.active_axes) < 1:
-            error_msg = "Ignoring goal: Empty monitoring request received"
+            error_msg = "Empty goal received: ignoring and cancelling all previous goals"
             rospy.logwarn(error_msg)
             self._result.threshold_reached = False
             self._action_server.set_aborted(self._result, error_msg)
@@ -103,29 +107,33 @@ class ForceTorqueMonitor(object):
         self._active_goal = new_goal
         self._initial_detection_times = [NOT_TRIGGERED] * len(self._active_goal.active_axes)
 
-        # if new_goal.plot:
-            # animation.FuncAnimation(fig, self._update_plot, self._get_plot_data, blit=False, interval=100, repeat=False)
-        return None
+        if self._active_goal.timeout > 0:
+            watchdog = rospy.Timer(rospy.Duration(self._active_goal.timeout), 
+                                    self._timeout_cb, 
+                                    oneshot=True)    
 
+        # Wait until goal is aborted or completed.
+        rate  = rospy.Rate(4)  # 2 Hz
+        while not rospy.is_shutdown() and self._action_server.is_active() and not self._action_server.is_preempt_requested():
+            rate.sleep()
+        rospy.loginfo("Goal processed")
     
-    
+    def preempt_cb(self):
+        error_msg = "New goal received: aborting previous goal"
+        rospy.logwarn(error_msg)
+        self._result.threshold_reached = False
+        self._action_server.set_aborted(self._result, error_msg)
+
     def wrench_data_update(self, sensor_data):
         # rospy.loginfo("Wrench message received")
-        latest_data = [rospy.get_time() - self._start_time,
-                        sensor_data.wrench.force.x,
-                        sensor_data.wrench.force.y,
-                        sensor_data.wrench.force.z,
-                        get_vector_magnitude(sensor_data.wrench.force),
-                        sensor_data.wrench.torque.x,
-                        sensor_data.wrench.torque.y,
-                        sensor_data.wrench.torque.z,
-                        get_vector_magnitude(sensor_data.wrench.torque)
-                        ]
+        
 
         if self._action_server.is_active():
             for axis_idx in range(len(self._active_goal.active_axes)):
                 axis = self._active_goal.active_axes[axis_idx]
                 current_value = get_axis_value(sensor_data, axis.axis_name)
+                # Save current value for feedback
+                axis.current_value = current_value
 
                 axis_triggered = False
                 if axis.max_value != AxisRange.DISABLED:
@@ -133,7 +141,7 @@ class ForceTorqueMonitor(object):
                         # Current value is above max threshold ! 
                         axis_triggered = True
 
-                if axis.min_value != AxisRang.DISABLED:
+                if axis.min_value != AxisRange.DISABLED:
                     if current_value <= axis.min_value:
                         # Current value is below min threshold ! 
                         axis_triggered = True
@@ -145,28 +153,37 @@ class ForceTorqueMonitor(object):
                         self._initial_detection_times[axis_idx] = rospy.get_time()
                     else:
                         # Consecutive trigger events 
-                        if rospy.get_time() - self._initial_detection_times[axis_idx] > axis.min_detection_time:
+                        if rospy.get_time() - self._initial_detection_times[axis_idx] > self._active_goal.min_detection_time:
                             # Monitoring event triggered 
+                            rospy.loginfo("Axis triggered, detection time: %.3f" % (rospy.get_time() - self._initial_detection_times[axis_idx]) )
                             self._result.threshold_reached = True
                             self._result.triggered_axis = axis
                             self._action_server.set_succeeded(self._result)
                             break
                 else:
                     self._initial_detection_times[axis_idx] = NOT_TRIGGERED
+            # Publish feedback 
+            self._feedback.active_axes = self._active_goal.active_axes
+            self._action_server.publish_feedback(self._feedback)
         
         if self._should_plot:
             # rospy.loginfo("Updating data " + str(len(time_buffer)))
-            
+            latest_data = [rospy.get_time() - self._start_time,
+                            sensor_data.wrench.force.x,
+                            sensor_data.wrench.force.y,
+                            sensor_data.wrench.force.z,
+                            get_vector_magnitude(sensor_data.wrench.force),
+                            sensor_data.wrench.torque.x,
+                            sensor_data.wrench.torque.y,
+                            sensor_data.wrench.torque.z,
+                            get_vector_magnitude(sensor_data.wrench.torque)
+                            ]
         
             idx_labels = [TIME, FX, FY, FZ, EQUIVALENT_FORCE, MX, MY, MZ, EQUIVALENT_TORQUE]
             last_reading = pd.Series(latest_data, idx_labels)
 
             self._data_buffer = self._data_buffer.append(pd.Series(last_reading), ignore_index = True)
-            # print( self._data_buffer)
-            # rospy.logerr("%.3f %.3f %.3f" %(sensor_data.wrench.force.x, sensor_data.wrench.force.y, sensor_data.wrench.force.z))
-        #     # Plot 
 
-    # End of class 
     def _run_graph(self):
 
         fig, (f_ax, m_ax) = plt.subplots(2, 1, sharex = True)
@@ -198,12 +215,13 @@ class ForceTorqueMonitor(object):
             last_timestamp = self._data_buffer[TIME].iloc[-1] if self._data_buffer[TIME].size > 0 else 0 
             # Update time axis 
             xmin, xmax = f_ax.get_xlim()
-            if xmax < last_timestamp:
-                f_ax.set_xlim(xmin, last_timestamp + 15)
-                m_ax.set_xlim(xmin, last_timestamp + 15)
+            if xmax > last_timestamp - 5 and (xmax < last_timestamp or xmax > last_timestamp + 20):
+                f_ax.set_xlim(xmin, last_timestamp + 10)
+                m_ax.set_xlim(xmin, last_timestamp + 10)
                 fig.canvas.draw()
 
             # Update for lines for forces
+            # try: 
             f_lines[0].set_data(self._data_buffer[TIME], self._data_buffer[FX])
             f_lines[1].set_data(self._data_buffer[TIME], self._data_buffer[FY])
             f_lines[2].set_data(self._data_buffer[TIME], self._data_buffer[FZ])
@@ -213,7 +231,8 @@ class ForceTorqueMonitor(object):
             m_lines[1].set_data(self._data_buffer[TIME], self._data_buffer[MY])
             m_lines[2].set_data(self._data_buffer[TIME], self._data_buffer[MZ])
             m_lines[3].set_data(self._data_buffer[TIME], self._data_buffer[EQUIVALENT_TORQUE])
-
+            # except:
+                # return []
             return f_lines + m_lines
         def get_plot_data():
             # rospy.loginfo("data update")
@@ -226,6 +245,16 @@ class ForceTorqueMonitor(object):
                                 blit=True, 
                                 interval=150)
         plt.show()
+
+    def _timeout_cb(self, event):
+        # If there is an active goal, set as failed.
+        if self._action_server.is_active():
+            error_msg = "Force Torque Monitoring goal aborted: Timeout reached"
+            rospy.logwarn(error_msg)
+            self._result.threshold_reached = False
+            self._action_server.set_aborted(self._result, error_msg)
+            
+
 
 def get_axis_value(sensor_data, axis_name):
     if axis_name == FX :

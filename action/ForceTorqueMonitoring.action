@@ -1,12 +1,19 @@
-# Define the goal
-bool plot = True
-float32 timeout = 5
-float32 min_detection_time = 0
+# GOAL
+# Whether to show the force/torque realtime plot
+bool plot
+# Monitoring timeout/watchdog timeout   
+float32 timeout 
+# Minimum required time of threshold violation to trigger detection
+# Example:
+# min_detection_time = 5 --> Detection will occur when an axis overpass its max or min value for 5 seconds
+float32 min_detection_time      # [s]
 force_sensor_utils/AxisRange[] active_axes
 ---
-# Define the result
+# RESULT
 bool threshold_reached
+# Axis that triggered the detection          
 force_sensor_utils/AxisRange triggered_axis
 ---
-# Define a feedback message
+# FEEDBACK
+# Same as goal `active_axes` but with the `current_value` field filled with the latest sensor data
 force_sensor_utils/AxisRange[] active_axes
