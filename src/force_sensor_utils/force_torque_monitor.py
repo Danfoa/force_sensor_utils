@@ -9,7 +9,28 @@ The detection of threshold violation is provided through the actionlib
 
 @author: Daniel Felipe Ordonez Apraez
 @email: daniels.ordonez@gmail.com
---------------------------------------------------------------------"""
+
+@copyright Copyright (c) 2019 INVITE GmbH 
+   
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the `Software`), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions: 
+   
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+   
+  THE SOFTWARE IS PROVIDED `AS IS`, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+--------------------------------------------------------------------\
+"""
 import rospy
 import actionlib
 import math
@@ -192,12 +213,13 @@ class ForceTorqueMonitor(object):
         m_lines = m_ax.plot([0], [0], 'r-', [0], [0], 'g-', [0], [0], 'b-', [0], [0], 'k-') 
         m_ax.legend(m_lines,(MX, MY, MZ, EQUIVALENT_TORQUE))
 
-        # f_ax.title('TMP102 Temperature over Time')
-        # animation.FuncAnimation(fig, self._update_plot, self._get_plot_data, blit=False, interval=100, repeat=False)
-        # plt.show(False)
         rospy.loginfo("Setting up animated graph")
         # Add labels
-        # fig.canvas.set_window_title('Force Torque Monitoring')
+        fig.canvas.set_window_title(self._wrench_topic)
+
+        subtitle = rospy.get_param('~plot_title', self._wrench_topic)
+        fig.suptitle(subtitle, fontsize="x-large")
+        
         f_ax.set_title("Force Feedback")
         f_ax.grid()
         m_ax.set_title("Torque Feedback")

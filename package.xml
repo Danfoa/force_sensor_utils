@@ -53,14 +53,40 @@
   <build_export_depend>rospy</build_export_depend>
   <exec_depend>rospy</exec_depend>
 
+  <build_depend>roscpp</build_depend>
+  <exec_depend>roscpp</exec_depend>
+  <depend>sensor_msgs</depend>
+  <depend>message_filters</depend>
+
+  <build_depend>geometry_msgs</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>tf2</build_depend>
+  <build_depend>tf2_ros</build_depend>	
+  <build_depend>tf2_geometry_msgs</build_depend>	
+  <build_depend>turtlesim</build_depend>
+	
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>tf2</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>tf2_geometry_msgs</exec_depend>
+
   <build_export_depend>std_msgs</build_export_depend>
   <exec_depend>std_msgs</exec_depend>
-  <build_depend>message_generation</build_depend>
+  <depend>message_generation</depend>
   <exec_depend>message_runtime</exec_depend>
   <build_depend>actionlib</build_depend>
   <build_depend>actionlib_msgs</build_depend>
   <exec_depend>actionlib</exec_depend>
   <exec_depend>actionlib_msgs</exec_depend>
+
+  <depend>moveit_core</depend>
+  <depend>moveit_fake_controller_manager</depend>
+  <depend>moveit_ros_planning_interface</depend>
+  <depend>moveit_ros_perception</depend>
+  <depend>interactive_markers</depend>
+  <depend>moveit_visual_tools</depend>
+  <depend>robotiq_2f_gripper_msgs</depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

@@ -11,7 +11,7 @@ if __name__ == "__main__":
 
     action_name =  rospy.get_param('~action_name', 'ForceTorqueMonitoring') 
     wrench_topic = rospy.get_param('~input_topic', '?')
-
+    
     if wrench_topic == '?':
       rospy.logfatal("No valid `input_topic` parameter, please provide the topic for WrenchStamped messages")
       rospy.signal_shutdown("No input topic given")
